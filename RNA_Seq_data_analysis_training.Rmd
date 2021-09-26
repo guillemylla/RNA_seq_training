@@ -1,0 +1,351 @@
+---
+title: "RNA-seq data analysis training"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_depth: 5
+---
+
+---
+
+- Guillem Ylla, Ph.D.
+- Harvard University
+- September 2021
+
+Data obtained from:
+
+- Tarikere, S., Ylla, G.,& Extavour, C. G. "Distinct gene expression dynamics in germ line and somatic tissue during ovariole morphogenesis in *Drosophila melanogaster*", 2021.
+- Github repo of the original data and analysis: https://htmlpreview.github.io/?https://raw.githubusercontent.com/guillemylla/Ovariole_morphogenesis_RNAseq/
+
+---
+
+
+
+## Load libraries
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(DESeq2)
+
+knitr::opts_chunk$set(fig.width = 12)
+knitr::opts_chunk$set(fig.height =  8)
+knitr::opts_chunk$set(cache = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warnings = FALSE)
+```
+
+
+## Load Data
+
+- Load counts table
+  - RNA-seq mapping was performed with RSEM in this [script](Run_RSEM_batch.sh)
+
+
+```{r,warning=FALSE,results=FALSE}
+Meta_BioSample_3<-read.csv(file="data/Meta_BioSample_3.csv", sep=",")
+rownames(Meta_BioSample_3)<-Meta_BioSample_3$BioSample_GY
+#Counts_metadata_long<-readr::read_tsv(file="data/WholeOvary_metadata_long.tsv") # long format prefered for tidyverse with metadata
+Counts_wide<-read.csv(file="data/WholeOvary_table_counts_wide.tsv",sep="\t") # wide format 
+```
+
+
+
+
+## Normalitzation 
+
+
+- make table wide for DESeq2
+
+```{r}
+Counts_wide_nz<-Counts_wide[rowSums(Counts_wide)!=0,]
+Counts_wide_nz<-round(Counts_wide,0)
+```
+
+
+
+```{r,warning=FALSE,results=FALSE}
+identical(colnames(Counts_wide_nz), rownames(Meta_BioSample_3))
+
+dds_WO <- DESeq2::DESeqDataSetFromMatrix(countData = Counts_wide_nz,
+                              colData = Meta_BioSample_3,
+                              design= ~Stage_GY+0)
+dds_pairwise <- DESeq2::DESeq(dds_WO)
+```
+
+- VST normalization
+
+```{r}
+VST_WO <- assay(varianceStabilizingTransformation(dds_WO, blind=TRUE))
+```
+
+- Add metadata
+
+```{r}
+VST_WO_meta<-as.data.frame(VST_WO) %>% 
+  tibble::rownames_to_column(var = "GeneID") %>% 
+  pivot_longer(cols=colnames(VST_WO),names_to="Sample", values_to="VST") %>% 
+  left_join(Meta_BioSample_3, by=c("Sample"="BioSample_GY")) 
+```
+
+
+- Boxplot normalozed data
+
+```{r}
+Boxplot_VST_WO <- ggplot(VST_WO_meta, aes(x=fct_reorder(Sample, as.numeric(Stage_GY)), y=VST,  fill=Stage_GY)) +
+  geom_boxplot()+ 
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 60, hjust = .8, size=8))+
+  scale_fill_Ctrl_Stage()+
+  labs(title = "Normalized Counts per gene (VST)",
+              subtitle = "Normalized counts per gene in each sample. Only 3 replicates per stage",fill ="Legend")+xlab("")
+
+Boxplot_VST_WO
+```
+
+
+
+## Hierarchical clustering
+
+```{r, fig.height=6}
+Samples_dist<-dist(t(VST_WO), method = "euclidean")
+Samples_hclust<-hclust(Samples_dist, method = "complete" )
+
+
+#png(filename="../Figures/WO_hclust.png", height=6, width = 6,res=300, units = "in")
+#svg(filename="../Figures/WO_hclust.svg", height=6, width = 6)
+  plot(Samples_hclust, cex = 1, hang =0.1, lwd = 2)
+#dev.off()
+```
+
+## PCA
+
+```{r}
+VST_WO_toPCA<-t(VST_WO)
+
+VST_WO_toPCA<-as.data.frame(VST_WO_toPCA) %>% 
+    tibble::rownames_to_column(var ="BioSample_GY") %>% 
+    dplyr::left_join(Meta_BioSample_3, by=c("BioSample_GY"="BioSample_GY")) %>% 
+                  mutate(Stage_GY=fct_relevel(Stage_GY, c("Early","Mid","Late")))
+
+rownames(VST_WO_toPCA)<-VST_WO_toPCA$BioSample_GY
+
+
+pca_WO_VST<-prcomp(VST_WO_toPCA[,2:nrow(VST_WO)+1], scale. =FALSE  )
+
+#get variance
+var_explained <- pca_WO_VST$sdev^2/sum(pca_WO_VST$sdev^2)
+
+pca_WO_VST_plot<-pca_WO_VST$x %>% 
+  as.data.frame %>%
+  ggplot(aes(x=PC1,y=PC2))  +
+  geom_text_repel(label = str_replace_all(VST_WO_toPCA$BioSample_GY,"_Ctrl_", " "), size=5) +
+  geom_point(aes(color=VST_WO_toPCA$Stage_GY), size = 10)+
+  scale_color_Ctrl_Stage()+ 
+  labs(x=paste0("PC1: ",round(var_explained[1]*100,1),"%"),
+       y=paste0("PC2: ",round(var_explained[2]*100,1),"%"),
+       title = "PCA all genes VST",color ="Color", shape="Shape")+
+  theme_bw(base_size = 12)
+
+pca_WO_VST_plot
+```
+
+
+##  Differential Expression Analysis
+
+- Run DEA
+
+```{r}
+dds_pairwise <- DESeq2::DESeq(dds_WO)
+```
+
+
+### DEA results of consecutive stages
+
+
+```{r}
+#A positive log2 fold change for a comparison of A vs B means that gene expression in A is larger in comparison to B.   https://support.bioconductor.org/p/62927/
+Early_vs_Mid<- results(dds_pairwise, contrast = c("Stage_GY", "Early","Mid")) %>%
+  as.data.frame() %>%   
+  tibble::rownames_to_column(var="GeneID") %>%as_tibble() %>%  
+  dplyr::arrange(padj) %>% 
+  dplyr::mutate(Up_in = dplyr::if_else( log2FoldChange>0, "Early_Up","Mid_Up" ))
+
+Mid_vs_Late<- results(dds_pairwise, contrast = c("Stage_GY", "Mid","Late")) %>%
+  as.data.frame() %>%   
+  tibble::rownames_to_column(var="GeneID") %>%as_tibble() %>%  
+  dplyr::arrange(padj) %>% 
+  dplyr::mutate(Up_in = dplyr::if_else( log2FoldChange>0, "Mid_Up","Late_Up" ))
+
+WO_sequencial<-rbind(cbind(Early_vs_Mid , comp="Early_vs_Mid"), cbind(Mid_vs_Late , comp="Mid_vs_Late"))
+
+```
+
+
+
+```{r}
+WO_sequencial_Plot<-WO_sequencial %>% 
+  filter(padj <0.01 ) %>% 
+  group_by(comp) %>% 
+  dplyr::summarise(up=sum(log2FoldChange<0),
+            down=-sum(log2FoldChange>0)) %>% 
+  ggplot(., aes(x=comp)) +
+    geom_bar(aes(y=down),fill="white", stat = "identity", colour="black")+
+    geom_bar(aes(y=up),fill="black" ,stat = "identity", colour="black")+
+    labs(title = "DEA genes WO sequencial (p<0.01 )")+
+    xlab("Comparision")+ylab("# DE Genes")+
+    theme_bw(base_size = 12)
+
+WO_sequencial_Plot
+```
+
+### DEA each stage vs other 2 stages
+
+#### Early
+
+```{r}
+WO_EarlyUp <- DESeq2::results(dds_pairwise, contrast = list( 
+  c("Stage_GYEarly"), 
+  c("Stage_GYMid","Stage_GYLate")) ,listValues=c(1, -1/2) )#,
+
+WO_EarlyUp_DE<-WO_EarlyUp  %>%as.data.frame() %>%   
+  tibble::rownames_to_column(var="GeneID") %>%as_tibble() %>%  
+  dplyr::arrange(padj) %>% 
+  dplyr::mutate(Up_Down = dplyr::if_else( log2FoldChange>0, "Up","Down" )) %>% 
+  filter(padj<0.01)
+```
+
+#### Mid
+
+```{r}
+WO_MidUp <- DESeq2::results(dds_pairwise, contrast = list( 
+  c("Stage_GYMid"), 
+  c("Stage_GYEarly","Stage_GYLate")) ,listValues=c(1, -1/2) )#,
+
+
+WO_MidUp_DE<-WO_MidUp  %>%as.data.frame() %>%   
+  tibble::rownames_to_column(var="GeneID") %>%as_tibble() %>%  
+  dplyr::arrange(padj) %>% 
+  dplyr::mutate(Up_Down = dplyr::if_else( log2FoldChange>0, "Up","Down" )) %>% 
+  filter(padj<0.01)
+```
+
+
+#### Late
+
+```{r}
+WO_LateUp <- DESeq2::results(dds_pairwise, contrast = list( 
+  c("Stage_GYLate"), 
+  c("Stage_GYEarly","Stage_GYMid")) ,listValues=c(1, -1/2) )#,
+
+
+
+WO_LateUp_DE<-WO_LateUp  %>%as.data.frame() %>%   
+  tibble::rownames_to_column(var="GeneID") %>%as_tibble() %>%  
+  dplyr::arrange(padj) %>% 
+  dplyr::mutate(Up_Down = dplyr::if_else( log2FoldChange>0, "Up","Down" )) %>% 
+  filter(padj<0.01)
+```
+
+#### Plot DEA by stage
+
+```{r}
+DEA_by_stage_results<-rbind(cbind(WO_EarlyUp_DE,Stage="Early"),
+                            cbind(WO_MidUp_DE,Stage="Mid"),
+                            cbind(WO_LateUp_DE,Stage="Late") ) %>%   mutate(Stage=fct_relevel(Stage, c("Early","Mid","Late"))) 
+
+
+WO_DEA_bystage_Plot<-DEA_by_stage_results%>% 
+  filter(padj <0.01 ) %>% 
+  group_by(Stage) %>% 
+  dplyr::summarise(up=sum(Up_Down=="Up"),
+            down=-sum(Up_Down=="Down")) %>% 
+  ggplot(., aes(x=Stage)) +
+    geom_bar(aes(y=down),fill="white", stat = "identity", colour="black")+
+    geom_bar(aes(y=up),fill="black" ,stat = "identity", colour="black")+
+    labs(title = "DEA genes (p<0.01  )")+
+    xlab("Stage")+ylab("# DE genes")+
+    theme_bw(base_size = 12)
+
+WO_DEA_bystage_Plot
+
+##ggsave(WO_DEA_bystage_Plot, filename = "../Figures/WO_DEA_bystage_Plot.png",  width=4, height=4)
+##ggsave(WO_DEA_bystage_Plot, filename = "../Figures/WO_DEA_bystage_Plot.svg",  width=4, height=4)
+
+```
+```{r}
+
+
+WO_DEA_bystage_Plot_ONLYUP<-DEA_by_stage_results%>% 
+  filter(padj <0.01 & Up_Down=="Up") %>% 
+  group_by(Stage) %>% 
+  tally(name="num") %>% 
+  ggplot(., aes(x=Stage)) +
+    geom_bar(aes(y=num),fill="black" ,stat = "identity", colour="black")+
+    labs(title = "DEA genes (p<0.01  )")+
+    xlab("Stage")+ylab("# DE genes")+
+    theme_bw(base_size = 12)
+
+WO_DEA_bystage_Plot_ONLYUP
+
+##ggsave(WO_DEA_bystage_Plot_ONLYUP, filename = "../Figures/WO_DEA_bystage_Plot.png",  width=4, height=4)
+##ggsave(WO_DEA_bystage_Plot_ONLYUP, filename = "../Figures/WO_DEA_bystage_Plot_ONLYUP.svg",  width=4, height=4)
+
+```
+
+
+
+
+## Uncharacterized genes
+
+```{r}
+ALLgenes<-rownames(VST_WO)
+
+ALLgenes_annot_names<-data.frame(GENENAME=AnnotationDbi::select(org.Dm.eg.db,keys=ALLgenes,columns=c("GENENAME" ),keytype="FLYBASE")[,2])#"GENENAME"
+
+ALLgenes_annot_names_unchar<-ALLgenes_annot_names%>% 
+  dplyr::group_by(GENENAME )  %>% 
+  dplyr::tally() %>% 
+  dplyr::arrange(desc(n)) %>%
+  dplyr::mutate(per=(n/sum(n)*100)) %>% 
+  dplyr::ungroup()
+```
+
+## Uncharacterized DEGs
+
+```{r}
+DEA_by_stage_results_annot<-DEA_by_stage_results
+
+DEA_by_stage_results_annot$GENENAME<-as.character(AnnotationDbi::select(org.Dm.eg.db,keys=DEA_by_stage_results_annot$GeneID,columns=c("GENENAME" ),keytype="FLYBASE")[,2])#"GENENAME"
+
+DEA_by_stage_Uncharacterized<-DEA_by_stage_results_annot%>% 
+   mutate(Stage=fct_relevel(Stage, c("Early","Mid","Late"))) %>% 
+  dplyr::filter(padj <0.01 ) %>% 
+  dplyr::group_by(Stage,GENENAME )  %>% 
+  dplyr::tally() %>% 
+  dplyr::arrange(desc(n)) %>%
+  dplyr::group_by(Stage )  %>% 
+  dplyr::mutate(per=(n/sum(n)*100)) %>% 
+  dplyr::ungroup()
+```
+
+
+
+
+```{r}
+Plot_DEA_by_stage_Uncharacterized<-DEA_by_stage_Uncharacterized %>% 
+  dplyr::filter(GENENAME=="uncharacterized protein") %>% 
+  ggplot(., aes(x=Stage, y=per)) +
+    geom_bar(fill="black" ,stat = "identity", colour="black")+
+    labs(title = "% unchar. Whole Ovary DEA")+
+    xlab("Stage")+ylab("# DE genes")+
+    theme_bw(base_size = 12)+
+    geom_text(aes(label=paste0(round(per,1),"%")), vjust=1.6, color="white", size=3.5)
+
+Plot_DEA_by_stage_Uncharacterized
+
+```
+
+
