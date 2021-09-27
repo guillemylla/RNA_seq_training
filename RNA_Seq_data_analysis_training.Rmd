@@ -45,10 +45,14 @@ knitr::opts_chunk$set(warnings = FALSE)
 
 
 ```{r,warning=FALSE,results=FALSE}
-Meta_BioSample_3<-read.csv(file="data/Meta_BioSample_3.csv", sep=",")
-rownames(Meta_BioSample_3)<-Meta_BioSample_3$BioSample_GY
-#Counts_metadata_long<-readr::read_tsv(file="data/WholeOvary_metadata_long.tsv") # long format prefered for tidyverse with metadata
-Counts_wide<-read.csv(file="data/WholeOvary_table_counts_wide.tsv",sep="\t") # wide format 
+Metadata<-read.csv("data/Metadata.csv")
+Metadata
+```
+
+
+```{r,warning=FALSE,results=FALSE}
+Counts<-read.csv(file="data/Counts_table.csv", row.names = 1) 
+head(Counts)
 ```
 
 
