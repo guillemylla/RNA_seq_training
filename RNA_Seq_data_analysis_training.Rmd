@@ -24,7 +24,7 @@ Data obtained from:
 
 ## Load libraries
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(ggplot2)
 library(tidyr)
 library(dplyr)
@@ -111,7 +111,7 @@ dea_result <- DESeq2::DESeq(dds)
 - See top DEGs
 
 ```{r}
-dea_result_df<-results(dea_result, contrast = c("Stage", "Early","Mid"), alpha=0.001) 
+dea_result_df<-as.data.frame(results(dea_result, contrast = c("Stage", "Early","Mid"), alpha=0.001) )
 
 head(dea_result_df)
 
@@ -122,7 +122,6 @@ head(dea_result_df)
 
 ```{r}
 dea_result_df %>% 
-  as.data.frame() %>% 
   filter(padj <0.01 ) %>% 
   dplyr::summarise(sum(log2FoldChange<0),
             sum(log2FoldChange>0)) 
@@ -181,7 +180,7 @@ var_explained <- pca_VST$sdev^2/sum(pca_VST$sdev^2)
 pca_VST_plot<-pca_VST$x %>% 
   as.data.frame %>%
   ggplot(aes(x=PC1,y=PC2))  +
-  geom_point(aes(color=VST_toPCA$Stage), size = 10)+
+  geom_point(aes(color=VST_toPCA$Stage), size = 8)+
   labs(x=paste0("PC1: ",round(var_explained[1]*100,1),"%"),
        y=paste0("PC2: ",round(var_explained[2]*100,1),"%"),
        title = "PCA all genes VST",color ="Color", shape="Shape")+
@@ -189,3 +188,16 @@ pca_VST_plot<-pca_VST$x %>%
 
 pca_VST_plot
 ```
+
+- Volcano plot of DEA
+
+
+```{r}
+ggplot(dea_result_df, aes(x=log2FoldChange, y=-log10(padj)) ) +
+  geom_point(data = subset(dea_result_df, padj < 0.01 & abs(log2FoldChange)>2),   color = "red", alpha = 0.8)+
+  geom_point(data = subset(dea_result_df, padj > 0.01 |  abs(log2FoldChange)<2 ),   color = "black", alpha = 0.8) +
+  geom_hline(yintercept = 2, linetype = "dashed", color="blue")+
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed", color="blue") 
+
+```
+

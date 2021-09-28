@@ -10,7 +10,7 @@
 fastqc YOUR_SAMPLE.fastq
 ```
 
-- Examples of the FasqtQC file at [data/fastqc_example](data/fastqc_example)
+- Examples of the FasqtQC file at [data/Example_FastQC](data/Example_FastQC)
 
 ## Read trimming
 
@@ -139,11 +139,9 @@ rsem-generate-data-matrix_TPMs rsem_output/*.genes.results  > Genes.TPMs.txt
 
 From this point on we will use R to perform the analysis. 
 
-- Rmd file with the source code
-- Compiled html file with code and figures
+- Rmd file with the source code: [RNA_Seq_data_analysis_training.Rmd](RNA_Seq_data_analysis_training.Rmd)
+- Compiled html file with code and figures: [RNA_Seq_data_analysis_training.htm](https://htmlpreview.github.io/?RNA_Seq_data_analysis_training.html)
 
-
-https://htmlpreview.github.io/?https://raw.githubusercontent.com/guillemylla/Ovariole_morphogenesis_RNAseq/main/1-Whole_Ovary_libraries.html 
 
 
 
