@@ -1,0 +1,11 @@
+PASS	Basic Statistics	MIII_27_GGCTAC.R1.fastq.gz
+PASS	Per base sequence quality	MIII_27_GGCTAC.R1.fastq.gz
+PASS	Per sequence quality scores	MIII_27_GGCTAC.R1.fastq.gz
+FAIL	Per base sequence content	MIII_27_GGCTAC.R1.fastq.gz
+FAIL	Per base GC content	MIII_27_GGCTAC.R1.fastq.gz
+FAIL	Per sequence GC content	MIII_27_GGCTAC.R1.fastq.gz
+PASS	Per base N content	MIII_27_GGCTAC.R1.fastq.gz
+PASS	Sequence Length Distribution	MIII_27_GGCTAC.R1.fastq.gz
+FAIL	Sequence Duplication Levels	MIII_27_GGCTAC.R1.fastq.gz
+WARN	Overrepresented sequences	MIII_27_GGCTAC.R1.fastq.gz
+WARN	Kmer Content	MIII_27_GGCTAC.R1.fastq.gz
