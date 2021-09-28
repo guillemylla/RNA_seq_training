@@ -140,7 +140,7 @@ rsem-generate-data-matrix_TPMs rsem_output/*.genes.results  > Genes.TPMs.txt
 From this point on we will use R to perform the analysis. 
 
 - Rmd file with the source code: [RNA_Seq_data_analysis_training.Rmd](RNA_Seq_data_analysis_training.Rmd)
-- Compiled html file with code and figures: [RNA_Seq_data_analysis_training.htm](https://htmlpreview.github.io/?RNA_Seq_data_analysis_training.html)
+- Compiled html file with code and figures: [RNA_Seq_data_analysis_training.htm](https://htmlpreview.github.io/?https://raw.githubusercontent.com/guillemylla/RNA_seq_training/main/RNA_Seq_data_analysis_training.html)
 
 
 
