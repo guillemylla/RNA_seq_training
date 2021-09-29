@@ -102,16 +102,11 @@ head(VST)
 
 ##  Differential Expression Analysis
 
-- Run DEA
-
-```{r}
-dea_result <- DESeq2::DESeq(dds)
-```
 
 - See top DEGs
 
 ```{r}
-dea_result_df<-as.data.frame(results(dea_result, contrast = c("Stage", "Early","Mid"), alpha=0.001) )
+dea_result_df<-as.data.frame(results(dds, contrast = c("Stage", "Early","Mid"), alpha=0.001) )
 
 head(dea_result_df)
 

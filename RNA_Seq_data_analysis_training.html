@@ -1789,13 +1789,9 @@ head(VST)</code></pre>
 <div id="differential-expression-analysis" class="section level2">
 <h2>Differential Expression Analysis</h2>
 <ul>
-<li>Run DEA</li>
-</ul>
-<pre class="r"><code>dea_result &lt;- DESeq2::DESeq(dds)</code></pre>
-<ul>
 <li>See top DEGs</li>
 </ul>
-<pre class="r"><code>dea_result_df&lt;-as.data.frame(results(dea_result, contrast = c(&quot;Stage&quot;, &quot;Early&quot;,&quot;Mid&quot;), alpha=0.001) )
+<pre class="r"><code>dea_result_df&lt;-as.data.frame(results(dds, contrast = c(&quot;Stage&quot;, &quot;Early&quot;,&quot;Mid&quot;), alpha=0.001) )
 
 head(dea_result_df)</code></pre>
 <div data-pagedtable="false">
